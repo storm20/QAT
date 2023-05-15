@@ -31,7 +31,9 @@ class QuantumConnection(Connection):
                                       models={"delay_model": FibreDelayModel()})
         # Add channels and forward quantum channel output to external port output:
         self.add_subcomponent(qchannel_a2b,forward_input=[("A","send")],forward_output=[("B", "recv")])
-        
+
+# TEST
+      
 # class QuantumConnection(Connection):
 #     def __init__(self, length, name="QuantumConnection"):
 #         super().__init__(name=name)
