@@ -10,6 +10,10 @@ import pandas as pd
 psi = ns.qubits.ketstates.b00
 rho = psi * psi.conj().transpose()
 
+rho1 = ns.qubits.ketstates.s0 * ns.qubits.ketstates.s0.conj().transpose()
+
+
+
 num_party = 6
 ns.set_qstate_formalism(QFormalism.DM)
 
@@ -20,6 +24,15 @@ output_array = np.ndarray(shape=(len(probs),2))
 s = 0
 r = 3
 
+
+bell_operators = []
+p0, p1 = ns.Z.projectors
+bell_operators.append(ns.CNOT * (ns.H ^ ns.I) * (p0 ^ p0) * (ns.H ^ ns.I) * ns.CNOT)
+bell_operators.append(ns.CNOT * (ns.H ^ ns.I) * (p0 ^ p1) * (ns.H ^ ns.I) * ns.CNOT)
+bell_operators.append(ns.CNOT * (ns.H ^ ns.I) * (p1 ^ p0) * (ns.H ^ ns.I) * ns.CNOT)
+bell_operators.append(ns.CNOT * (ns.H ^ ns.I) * (p1 ^ p1) * (ns.H ^ ns.I) * ns.CNOT)
+
+qubit_send = ns.qubits.create_qubits(1)
 for j in range (len(probs)):
     # print(f"Current Index: {j}")
     qubits = ns.qubits.create_qubits(num_party)
@@ -27,9 +40,10 @@ for j in range (len(probs)):
     for i in range(num_party-1):
         operate([qubits[0],qubits[i+1]], CNOT)
     for i in range(num_party):
-        # depolarize(qubits[i], prob=probs[j])
+        # pass
+        depolarize(qubits[i], prob=probs[j])
         # dephase(qubits[i], prob=probs[j])
-        apply_pauli_noise(qubits[i], (1-probs[j], probs[j], 0, 0))
+        # apply_pauli_noise(qubits[i], (1-probs[j], probs[j], 0, 0))
     sum_1 = 0
     for i in range (num_party):
         if i !=s and i !=r:
@@ -45,11 +59,23 @@ for j in range (len(probs)):
     # Receiver perform correction if 1's is odd
     if sum_1 % 2 == 1:
             operate(qubits[r],Z)
-            
-    output_state = reduced_dm([qubits[s],qubits[r]])
+    meas, prob = ns.qubits.gmeasure([qubit_send[0],qubits[s]], meas_operators=bell_operators)
+    if meas == 1:
+        operate(qubits[r],X)
+    elif meas == 2:
+        operate(qubits[r],Z)
+    elif meas == 3:
+        operate(qubits[r],X)
+        operate(qubits[r],Z)      
+    # output_state = reduced_dm([qubits[s],qubits[r]])
+    output_state = reduced_dm([qubits[r]])
+    
+    # print(output_state)
+    
     # print(rho)
     # print(output_state)
-    fidelity = ns.qubits.dmutil.dm_fidelity(output_state,rho,squared = True)
+    fidelity = ns.qubits.dmutil.dm_fidelity(output_state,rho1,squared = True)
+    # fidelity = ns.qubits.dmutil.dm_fidelity(output_state,rho,squared = True)
     output_array[j][0] = probs[j]
     output_array[j][1] = fidelity
 # print(output_array)
@@ -57,5 +83,5 @@ for j in range (len(probs)):
 fid_data = pd.DataFrame(data = output_array,columns = ['Noise Param','Fidelity'])
 print(fid_data)
 fid_data.plot(x = 'Noise Param', y='Fidelity')
-fid_data.to_csv(f'GHZ_fidelity_bitflip_K{num_party}.csv')
+# fid_data.to_csv(f'GHZ_fidelity_bitflip_K{num_party}.csv')
 
